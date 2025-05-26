@@ -6,7 +6,8 @@
 from .api import (
     load_default_table,
     calculate_whole_life_nsp,
-    calculate_whole_life_annuity_pv
+    calculate_whole_life_annuity_pv,
+    calculate_survival_prob
 )
 
 # Anda juga bisa mendefinisikan informasi versi di sini
