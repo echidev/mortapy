@@ -41,3 +41,21 @@ def calculate_whole_life_annuity_pv(
         
     calc = ActuarialCalculator(mortality_table, interest_rate)
     return calc.a_due_x(age, gender)
+
+def calculate_survival_prob(
+    age: int,
+    period: float,
+    interest_rate: float,
+    gender: Literal['pria', 'wanita'] = 'pria',
+    assumption: Literal['udd', 'cfm'] = 'udd',
+    mortality_table: MortalityTable = None
+) -> float:
+    """
+    Fungsi high-level untuk menghitung probabilitas bertahan hidup (_n_p_x)
+    untuk periode non-bulat.
+    """
+    if mortality_table is None:
+        mortality_table = load_default_table()
+    
+    calc = ActuarialCalculator(mortality_table, interest_rate)
+    return calc.p_frac(age, period, gender, assumption)
