@@ -1,0 +1,93 @@
+# ===================================================================
+# Python .gitignore
+#
+# Dibuat dari template standar dan disesuaikan untuk proyek library
+# ===================================================================
+
+# 1. Bytecode dan Cache Python
+# -------------------------------------------------------------------
+# File-file ini dibuat oleh Python saat menjalankan kode Anda.
+# Tidak perlu disimpan karena bisa dibuat ulang kapan saja.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# 2. Direktori Virtual Environment
+# -------------------------------------------------------------------
+# Folder ini berisi library yang Anda install dan bersifat lokal.
+# Ukurannya bisa sangat besar dan tidak boleh dimasukkan ke repositori.
+venv/
+env/
+.venv/
+.env/
+*/venv/
+*/env/
+*/.venv/
+*/.env/
+
+
+# 3. Artefak Distribusi dan Build
+# -------------------------------------------------------------------
+# Folder dan file yang dibuat saat Anda mem-build paket untuk PyPI.
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+wheelhouse/
+
+
+# 4. Laporan Testing dan Coverage
+# -------------------------------------------------------------------
+# Cache dan laporan yang dibuat oleh pytest dan coverage.py.
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+
+
+# 5. Konfigurasi IDE dan Editor
+# -------------------------------------------------------------------
+# Setiap developer punya editor favorit. Abaikan file konfigurasi
+# agar tidak mengganggu developer lain.
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+
+# 6. File Spesifik Sistem Operasi
+# -------------------------------------------------------------------
+# File sampah yang dibuat oleh macOS dan Windows.
+.DS_Store
+Thumbs.db
+
+
+# 7. File Environment
+# -------------------------------------------------------------------
+# Jangan pernah menyimpan kredensial atau kunci API di Git.
+# Simpan di file .env dan abaikan.
+.env
+.env.*
+# Kecualikan file contoh agar bisa dicommit
+!.env.example
+
+
+# 8. Notebook dan Log
+# -------------------------------------------------------------------
+# Checkpoints dari Jupyter dan file-file log.
+.ipynb_checkpoints
+*.log
+*.log.*
+
+
+# 9. Sphinx Docs
+# -------------------------------------------------------------------
+# Jika Anda membuat dokumentasi menggunakan Sphinx
+docs/build/
