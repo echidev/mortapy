@@ -1,7 +1,7 @@
 # mortapy/core_calculator.py
 from typing import Literal, Optional, Callable
 from .tables.base import MortalityTable
-import math # Pastikan math diimpor jika belum
+import math
 
 class ActuarialCalculator:
     """
@@ -47,6 +47,16 @@ class ActuarialCalculator:
                 break 
             current_survival_prob *= self._get_px_from_table(current_age, gender, table)
         return current_survival_prob
+    
+    def death_probability_from_table(self, age: int, n_years: int, gender: Literal['pria', 'wanita'], table: MortalityTable) -> float:
+        """Menghitung _n q_x menggunakan MortalityTable (untuk periode bulat n)."""
+        return 1.0 - self.survival_probability_from_table(age, n_years, gender, table)
+
+    def deferred_death_probability_from_table(self, age: int, deferral_period: int, n_years_death: int, gender: Literal['pria', 'wanita'], table: MortalityTable) -> float:
+        """Menghitung _{deferral_period}|{n_years_death} q_x menggunakan MortalityTable (untuk periode bulat)."""
+        prob_survive_deferral = self.survival_probability_from_table(age, deferral_period, gender, table)
+        prob_die_within_n_after_deferral = self.death_probability_from_table(age + deferral_period, n_years_death, gender, table)
+        return prob_survive_deferral * prob_die_within_n_after_deferral
 
     def nsp_whole_life_from_table(self, age: int, gender: Literal['pria', 'wanita'], table: MortalityTable) -> float:
         """Menghitung A_x menggunakan MortalityTable."""
@@ -78,10 +88,10 @@ class ActuarialCalculator:
     def survival_probability_from_assumption(
         self, 
         age: int, 
-        n_years: float, 
+        n_years: float, # Periode bisa float
         px_function_yearly: Callable[[int], float], 
         omega: int,
-        assumption_type_for_fractional: Optional[Literal['udd', 'cfm']] = 'cfm' # Nama parameter definisi
+        assumption_type_for_fractional: Optional[Literal['udd', 'cfm']] = 'cfm'
     ) -> float:
         """
         Menghitung probabilitas _t p_x menggunakan fungsi p_x(usia_bulat) dari asumsi.
@@ -109,19 +119,59 @@ class ActuarialCalculator:
                 current_survival_prob = 0.0
             else:
                 px_for_fractional_base = px_function_yearly(age_after_integer_part)
-                # --- PERUBAHAN DI SINI ---
-                if assumption_type_for_fractional == 'cfm': # Menggunakan nama parameter yang benar
+                if assumption_type_for_fractional == 'cfm':
                     current_survival_prob *= (px_for_fractional_base ** fractional_part)
-                elif assumption_type_for_fractional == 'udd': # Menggunakan nama parameter yang benar
+                elif assumption_type_for_fractional == 'udd':
                     qx_for_fractional_base = 1.0 - px_for_fractional_base
                     current_survival_prob *= (1.0 - fractional_part * qx_for_fractional_base)
-                # -------------------------
                 else:
-                    # Ini tidak akan pernah terjadi jika type hint Optional[Literal[...]] = 'cfm' benar
-                    # Tapi sebagai pengaman:
                     raise ValueError("Asumsi fraksional tidak valid. Pilih 'udd' atau 'cfm'.")
-        
         return current_survival_prob
+
+    def death_probability_from_assumption(
+        self, 
+        age: int, 
+        n_years: float, 
+        px_function_yearly: Callable[[int], float], 
+        omega: int, 
+        assumption_type_for_fractional: Optional[Literal['udd', 'cfm']] = 'cfm'
+    ) -> float:
+        """Menghitung _n q_x menggunakan fungsi p_x dari asumsi."""
+        return 1.0 - self.survival_probability_from_assumption(age, n_years, px_function_yearly, omega, assumption_type_for_fractional)
+
+    def deferred_death_probability_from_assumption(
+        self, 
+        age: int, 
+        deferral_period: float, 
+        n_years_death: float, 
+        px_function_yearly: Callable[[int], float], 
+        omega: int, 
+        assumption_type_for_fractional: Optional[Literal['udd', 'cfm']] = 'cfm'
+    ) -> float:
+        """Menghitung _{deferral_period}|{n_years_death} q_x menggunakan fungsi p_x dari asumsi."""
+        prob_survive_deferral = self.survival_probability_from_assumption(
+            age, deferral_period, px_function_yearly, omega, assumption_type_for_fractional
+        )
+        
+        # Untuk q_{x+t} selama u tahun, kita perlu p_{x+t} selama u tahun.
+        # Ini berarti survival_probability_from_assumption(age + deferral_period, n_years_death, ...)
+        # Namun, jika deferral_period adalah float, age + deferral_period akan menjadi float.
+        # Metode survival_probability_from_assumption mengharapkan 'age' integer (usia bulat awal).
+        # Ini memerlukan penanganan usia awal non-bulat yang lebih canggih atau kita asumsikan
+        # bahwa px_function_yearly bisa diinterpretasikan pada usia bulat terdekat.
+        # UNTUK SEKARANG, ASUMSIKAN DEFERRAL_PERIOD ADALAH INTEGER UNTUK KESEDERHANAAN
+        # ATAU px_function menangani usia non-bulat secara implisit (misal, jika dari mu kontinu).
+        
+        # Jika px_function hanya untuk usia bulat dan deferral_period adalah float:
+        # Kita perlu menghitung survival dari usia bulat (age + int(deferral_period))
+        # untuk sisa deferral_period (deferral_period - int(deferral_period)) dan
+        # kemudian untuk n_years_death. Ini menjadi lebih kompleks.
+        
+        # SOLUSI SEMENTARA: Gunakan formula _tp_x - _{t+u}p_x
+        prob_survive_total_period = self.survival_probability_from_assumption(
+            age, deferral_period + n_years_death, px_function_yearly, omega, assumption_type_for_fractional
+        )
+        return prob_survive_deferral - prob_survive_total_period
 
 
     def nsp_whole_life_from_assumption(self, age: int, qx_function: Callable[[int], float], px_function: Callable[[int], float], omega: int) -> float:
@@ -130,7 +180,7 @@ class ActuarialCalculator:
         for k in range(omega - age): 
             age_at_k: int = age + k
             
-            prob_survive_k_years: float = self.survival_probability_from_assumption(age, float(k), px_function, omega)
+            prob_survive_k_years: float = self.survival_probability_from_assumption(age, float(k), px_function, omega, 'cfm') # Periode k adalah integer
             if prob_survive_k_years == 0.0 and k > 0:
                 break
             prob_die_next_year: float = qx_function(age_at_k)
@@ -143,7 +193,7 @@ class ActuarialCalculator:
         """Menghitung ä_x menggunakan fungsi p_x tahunan dari asumsi."""
         present_value_sum: float = 0.0
         for k in range(omega - age + 1):
-            prob_survive_k_years: float = self.survival_probability_from_assumption(age, float(k), px_function, omega)
+            prob_survive_k_years: float = self.survival_probability_from_assumption(age, float(k), px_function, omega, 'cfm') # Periode k adalah integer
             if prob_survive_k_years == 0.0 and k > 0:
                 break
             discounted_payment: float = (self.v ** k) * prob_survive_k_years

@@ -1,6 +1,6 @@
 # mortapy/result.py
 from IPython.display import display, Math
-from typing import Union, Any, Callable # Tambahkan Callable
+from typing import Union, Any, Callable
 
 class ActuarialResult:
     """
