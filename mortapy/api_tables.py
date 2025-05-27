@@ -5,7 +5,6 @@ from .tables.base import MortalityTable
 from .core_calculator import ActuarialCalculator
 from .result import ActuarialResult
 
-# Path default ke tabel bawaan di dalam paket
 CURRENT_PACKAGE_DIR = os.path.dirname(__file__)
 DEFAULT_TABLE_PATH = os.path.join(CURRENT_PACKAGE_DIR, 'tables', 'tabel_mortalita_penduduk_indonesia_2023.csv')
 
@@ -26,7 +25,6 @@ def _get_default_table() -> MortalityTable:
             _DEFAULT_TABLE_INSTANCE = MortalityTable(DEFAULT_TABLE_PATH)
     return _DEFAULT_TABLE_INSTANCE
 
-# PASTIKAN FUNGSI INI ADA DAN BERNAMA PERSIS 'load_default_table'
 def load_default_table() -> MortalityTable:
     """
     Memuat dan mengembalikan instance tabel mortalita default Indonesia.
@@ -62,8 +60,10 @@ def nsp_whole_life(
     
     effective_gender = gender if table_to_use.has_gender_columns else None
 
+
     calc = ActuarialCalculator(interest_rate=interest_rate)
-    value = calc.nsp_whole_life_from_table(age, effective_gender if effective_gender else 'pria', table_to_use)
+    # Menggunakan metode yang sesuai dari core_calculator
+    value = calc.nsp_whole_life_from_table(age, effective_gender if effective_gender else 'pria', table_to_use) 
     
     formula_str = rf"A_{{{age}"
     if table_to_use.has_gender_columns and effective_gender:
@@ -74,6 +74,7 @@ def nsp_whole_life(
          description += f", Gender {effective_gender.capitalize()}"
         
     return ActuarialResult(value, formula_str, description)
+
 
 def pv_annuity_due_whole_life(
     age: int,
@@ -114,12 +115,15 @@ def pv_annuity_due_whole_life(
             
     return ActuarialResult(value, formula_str, description)
 
+
 def survival_probability(
     age: int,
     n_years: int, 
     interest_rate: float, 
     gender: Literal['pria', 'wanita'],
     mortality_table: Optional[MortalityTable] = None
+    # Jika ingin usia non-bulat, ini akan diimplementasikan di branch asumsiUsiaNonBulat
+    # dengan parameter tambahan seperti assumption_fractional
 ) -> ActuarialResult:
     """
     Menghitung probabilitas hidup _{n}p_{x} untuk periode bulat n tahun
@@ -144,6 +148,7 @@ def survival_probability(
     if table_to_use.has_gender_columns and gender not in ['pria', 'wanita']:
         raise ValueError("Parameter 'gender' ('pria' atau 'wanita') wajib untuk tabel ini.")
     effective_gender = gender if table_to_use.has_gender_columns else None
+
 
     calc = ActuarialCalculator(interest_rate=interest_rate)
     value = calc.survival_probability_from_table(age, n_years, effective_gender if effective_gender else 'pria', table_to_use)

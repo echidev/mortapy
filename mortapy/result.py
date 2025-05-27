@@ -16,7 +16,7 @@ class ActuarialResult:
             formula_latex (str): Representasi simbol LaTeX utama dari hasil.
                                  Contoh: "A_x", "\\ddot{a}_{x:\overline{n}|}".
                                  Tidak perlu menyertakan "$$" atau "= nilai".
-            description (str, optional): Deskripsi kontekstual dari hasil.
+            description (str, optional): Deskripsi kontekstual dari hasil. 
                                          Defaults to "".
         """
         self.value: float = value
@@ -59,7 +59,7 @@ class ActuarialResult:
             new_formula = f"({self.formula_latex} {op_symbol} {other})"
             new_description_parts.append(str(other))
         else:
-            return NotImplemented # Penting untuk operasi reflektif Python
+            return NotImplemented
         
         return ActuarialResult(new_value, new_formula, " ".join(new_description_parts))
 
@@ -69,7 +69,7 @@ class ActuarialResult:
 
     def __radd__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
         """Menambahkan angka dengan ActuarialResult (operasi reflektif)."""
-        return self.__add__(other) # Penjumlahan bersifat komutatif
+        return self.__add__(other)
 
     def __sub__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
         """Mengurangkan ActuarialResult lain atau angka dari ActuarialResult ini."""
