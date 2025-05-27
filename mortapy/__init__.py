@@ -1,13 +1,11 @@
 # mortapy/__init__.py
 
-# Ekstrak fungsi-fungsi utama dari modul API agar bisa diakses
-# langsung oleh pengguna. Contoh: import mortapy as mp; mp.calculate_whole_life_nsp()
-
+from .result import ActuarialResult
+from .tables.base import MortalityTable
 from .api import (
     load_default_table,
     calculate_whole_life_nsp,
-    calculate_whole_life_annuity_pv
+    calculate_whole_life_annuity_pv,
+    calculate_survival_prob, # Asumsikan ini masih ada dan mengembalikan float
 )
-
-# Anda juga bisa mendefinisikan informasi versi di sini
-__version__ = "0.1.0"
+__version__ = "0.3.0" # Mungkin naikkan versi lagi karena perubahan signifikan
