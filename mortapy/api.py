@@ -25,8 +25,6 @@ def calculate_whole_life_nsp(
     calc = ActuarialCalculator(mortality_table, interest_rate)
     value = calc.Ax(age, gender)
     
-    # Gunakan makro yang akan diparsing oleh latex_renderer.py
-    # Misal, kita ingin menggunakan \Ax{x} seperti di PDF
     formula_actsymbol_str = rf"\Ax{{{age}}}" 
     
     return ActuarialResult(value, formula_actsymbol_str)
@@ -43,12 +41,10 @@ def calculate_whole_life_annuity_pv(
     calc = ActuarialCalculator(mortality_table, interest_rate)
     value = calc.a_due_x(age, gender)
     
-    # Menggunakan makro \ax**{x} (annuity due)
-    formula_actsymbol_str = rf"\ax**{{{age}}}"
+    formula_actsymbol_str = rf"\ax**{{{age}}}" # Menggunakan makro actuarialsymbol
     
     return ActuarialResult(value, formula_actsymbol_str)
 
-# INI FUNGSI YANG PERLU DIPASTIKAN ADA DAN BENAR
 def calculate_survival_prob(
     age: int,
     period: float,
@@ -56,7 +52,7 @@ def calculate_survival_prob(
     gender: Literal['pria', 'wanita'] = 'pria',
     assumption: Literal['udd', 'cfm'] = 'udd',
     mortality_table: MortalityTable = None # type: ignore
-) -> float:
+) -> ActuarialResult: # Diubah untuk mengembalikan ActuarialResult
     """
     Fungsi high-level untuk menghitung probabilitas bertahan hidup (_n_p_x)
     untuk periode non-bulat.
@@ -65,4 +61,18 @@ def calculate_survival_prob(
         mortality_table = load_default_table()
     
     calc = ActuarialCalculator(mortality_table, interest_rate)
-    return calc.p_frac(age, period, gender, assumption)
+    value = calc.p_frac(age, period, gender, assumption)
+
+    # Membuat formula LaTeX sederhana untuk probabilitas hidup
+    # _n p_x
+    # Anda bisa membuat ini lebih kompleks jika ingin menampilkan formula UDD/CFM
+    # secara eksplisit, tapi untuk awal cukup simbolnya saja.
+    # Jika 'period' adalah integer, kita bisa hilangkan desimalnya.
+    n_str = str(int(period)) if period == int(period) else str(period)
+    formula_actsymbol_str = rf"{{}}_{{{n_str}}}p_{{{age}}}"
+    if assumption == 'udd':
+        formula_actsymbol_str += r"^{{(UDD)}}"
+    elif assumption == 'cfm':
+        formula_actsymbol_str += r"^{{(CFM)}}"
+        
+    return ActuarialResult(value, formula_actsymbol_str)
