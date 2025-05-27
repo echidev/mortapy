@@ -1,29 +1,42 @@
 # mortapy/result.py
-
-# Impor renderer Anda
-from .latex_renderer import render_actuarial_latex
+from IPython.display import display, Math 
 
 class ActuarialResult:
-    def __init__(self, value: float, formula_actsymbol: str):
+    """
+    Sebuah kelas untuk menampung hasil perhitungan aktuaria,
+    beserta formula LaTeX-nya.
+    """
+    def __init__(self, value: float, formula_to_render: str):
         """
+        Inisialisasi objek hasil aktuaria.
+
         Args:
-            value (float): Nilai numerik hasil perhitungan.
-            formula_actsymbol (str): String formula MENGGUNAKAN makro gaya actuarialsymbol.
-                                     Contoh: r"\Ax{x}" atau r"\term{x}{n}"
+            value (float): Nilai numerik dari hasil perhitungan.
+            formula_to_render (str): String formula LaTeX MENTAH (tanpa apitan $$)
+                                     yang akan di-render.
         """
         self.value = value
-        self.original_formula_actsymbol = formula_actsymbol # Simpan formula asli jika perlu
-        
-        # Render formula ke LaTeX dasar saat objek dibuat
-        self.rendered_latex_formula = render_actuarial_latex(formula_actsymbol)
+        # Simpan string formula mentah ke atribut self.formula_latex
+        self.formula_latex = r"{}".format(str(formula_to_render).strip('$'))
 
     def __repr__(self):
-        # Menampilkan formula yang sudah di-render untuk konsistensi
-        return f"Formula: {self.rendered_latex_formula}\nHasil: {self.value:.8f}"
+        """Representasi teks standar (misal: saat di-print)."""
+        # Menampilkan formula yang akan di-render dan hasilnya
+        return f"Formula (LaTeX): {self.formula_latex}\nHasil: {self.value:.8f}"
 
     def _repr_latex_(self):
         """
         Representasi LaTeX untuk Jupyter Notebook / IPython.
-        Menggunakan formula yang sudah di-render ke LaTeX dasar.
+        Menampilkan: $$ FORMULA = HASIL $$
         """
-        return f"$ {self.rendered_latex_formula} = {self.value:.8f} $"
+        # Pastikan self.formula_latex adalah string LaTeX yang valid
+        return f"$ {self.formula_latex} = {self.value:.8f} $"
+
+    def show(self): # Atau display_latex(), atau render()
+        """Secara eksplisit menampilkan output LaTeX di Jupyter."""
+        # Menggunakan display(Math(...)) untuk merender LaTeX
+        # dan display(HTML(...)) untuk deskripsi jika ada
+        display(Math(f"{self.formula_latex} = {self.value:.8f}"))
+        # Jika Anda ingin mengembalikan deskripsi juga (yang kita hapus sebelumnya):
+        # display(HTML(f"<p><strong>{self.description}</strong></p>"))
+        # display(HTML(f"<p>Nilai: {self.value:.8f}</p>"))

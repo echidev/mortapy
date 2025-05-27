@@ -9,8 +9,7 @@ from .api import (
     load_default_table,
     calculate_whole_life_nsp,
     calculate_whole_life_annuity_pv,
-    calculate_survival_prob,  # Pastikan koma ada jika ini bukan item terakhir sebelum ')'
+    calculate_survival_prob_integer,
 )
 
-# Versi paket Anda
-__version__ = "0.3.0"
+__version__ = "0.3.0" # atau versi yang sesuai

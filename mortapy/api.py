@@ -1,7 +1,7 @@
 # mortapy/api.py
 
 import os
-from typing import Literal
+from typing import Literal, Optional
 from .tables.base import MortalityTable
 from .core import ActuarialCalculator
 from .result import ActuarialResult # Pastikan ini diimpor
@@ -16,63 +16,88 @@ def load_default_table() -> MortalityTable:
 def calculate_whole_life_nsp(
     age: int,
     interest_rate: float,
-    gender: Literal['pria', 'wanita'] = 'pria',
-    mortality_table: MortalityTable = None # type: ignore
+    gender: Optional[Literal['pria', 'wanita']] = None,
+    mortality_table: Optional[MortalityTable] = None,
+    base_qx: Optional[float] = None,
+    base_px: Optional[float] = None
 ) -> ActuarialResult:
-    if mortality_table is None:
-        mortality_table = load_default_table()
     
-    calc = ActuarialCalculator(mortality_table, interest_rate)
+    table_to_use = mortality_table
+    if mortality_table is None and base_qx is None and base_px is None:
+        table_to_use = load_default_table()
+
+    calc = ActuarialCalculator(
+        interest_rate=interest_rate, 
+        mortality_table=table_to_use, 
+        base_qx=base_qx, 
+        base_px=base_px
+    )
     value = calc.Ax(age, gender)
     
-    formula_actsymbol_str = rf"\Ax{{{age}}}" 
+    age_str = str(age)
+    formula_str_for_latex = rf"A_{{{age_str}}}" # Contoh simbol LaTeX dasar
+    # Jika ingin formula lengkap:
+    # formula_str_for_latex = rf"A_{{{age_str}}} = \sum_{{k=0}}^{{\omega-{age_str}-1}} v^{{k+1}} \cdot {{}}_{{k}}p_{{{age_str}}} \cdot q_{{{age_str}+k}}"
     
-    return ActuarialResult(value, formula_actsymbol_str)
+    return ActuarialResult(value, formula_str_for_latex)
 
 def calculate_whole_life_annuity_pv(
     age: int,
     interest_rate: float,
-    gender: Literal['pria', 'wanita'] = 'pria',
-    mortality_table: MortalityTable = None # type: ignore
+    gender: Optional[Literal['pria', 'wanita']] = None,
+    mortality_table: Optional[MortalityTable] = None,
+    base_qx: Optional[float] = None,
+    base_px: Optional[float] = None
 ) -> ActuarialResult:
-    if mortality_table is None:
-        mortality_table = load_default_table()
+
+    table_to_use = mortality_table
+    if mortality_table is None and base_qx is None and base_px is None:
+        table_to_use = load_default_table()
         
-    calc = ActuarialCalculator(mortality_table, interest_rate)
+    calc = ActuarialCalculator(
+        interest_rate=interest_rate, 
+        mortality_table=table_to_use, 
+        base_qx=base_qx, 
+        base_px=base_px
+    )
     value = calc.a_due_x(age, gender)
     
-    formula_actsymbol_str = rf"\ax**{{{age}}}" # Menggunakan makro actuarialsymbol
+    age_str = str(age)
+    formula_str_for_latex = rf"\ddot{{a}}_{{{age_str}}}" # Contoh simbol LaTeX dasar
+    # Jika ingin formula lengkap:
+    # formula_str_for_latex = rf"\ddot{{a}}_{{{age_str}}} = \sum_{{k=0}}^{{\omega-{age_str}}} v^{{k}} \cdot {{}}_{{k}}p_{{{age_str}}}"
     
-    return ActuarialResult(value, formula_actsymbol_str)
+    return ActuarialResult(value, formula_str_for_latex)
 
-def calculate_survival_prob(
+def calculate_survival_prob_integer(
     age: int,
-    period: float,
+    period_years: int,
     interest_rate: float, 
-    gender: Literal['pria', 'wanita'] = 'pria',
-    assumption: Literal['udd', 'cfm'] = 'udd',
-    mortality_table: MortalityTable = None # type: ignore
-) -> ActuarialResult: # Diubah untuk mengembalikan ActuarialResult
-    """
-    Fungsi high-level untuk menghitung probabilitas bertahan hidup (_n_p_x)
-    untuk periode non-bulat.
-    """
-    if mortality_table is None:
-        mortality_table = load_default_table()
+    gender: Optional[Literal['pria', 'wanita']] = None,
+    mortality_table: Optional[MortalityTable] = None,
+    base_qx: Optional[float] = None,
+    base_px: Optional[float] = None
+) -> ActuarialResult:
     
-    calc = ActuarialCalculator(mortality_table, interest_rate)
-    value = calc.p_frac(age, period, gender, assumption)
+    table_to_use = mortality_table
+    if mortality_table is None and base_qx is None and base_px is None:
+        table_to_use = load_default_table()
 
-    # Membuat formula LaTeX sederhana untuk probabilitas hidup
-    # _n p_x
-    # Anda bisa membuat ini lebih kompleks jika ingin menampilkan formula UDD/CFM
-    # secara eksplisit, tapi untuk awal cukup simbolnya saja.
-    # Jika 'period' adalah integer, kita bisa hilangkan desimalnya.
-    n_str = str(int(period)) if period == int(period) else str(period)
-    formula_actsymbol_str = rf"{{}}_{{{n_str}}}p_{{{age}}}"
-    if assumption == 'udd':
-        formula_actsymbol_str += r"^{{(UDD)}}"
-    elif assumption == 'cfm':
-        formula_actsymbol_str += r"^{{(CFM)}}"
+    if base_qx is not None and period_years > 1:
+        print("Peringatan: base_qx tunggal digunakan untuk periode multi-tahun. Asumsi qx konstan.")
+    if base_px is not None and period_years > 1:
+        print("Peringatan: base_px tunggal digunakan untuk periode multi-tahun. Asumsi px konstan.")
+
+    calc = ActuarialCalculator(
+        interest_rate=interest_rate, 
+        mortality_table=table_to_use, 
+        base_qx=base_qx, 
+        base_px=base_px
+    )
+    value = calc.p(age, period_years, gender)
+
+    n_str = str(period_years)
+    age_str = str(age)
+    formula_str_for_latex = rf"{{}}_{{{n_str}}}p_{{{age_str}}}"
         
-    return ActuarialResult(value, formula_actsymbol_str)
+    return ActuarialResult(value, formula_str_for_latex)

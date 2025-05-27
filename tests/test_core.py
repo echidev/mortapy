@@ -9,8 +9,8 @@ TEST_TABLE_PATH = os.path.join(os.path.dirname(__file__), '..', 'mortapy', 'tabl
 def calc():
     """Fixture untuk membuat objek kalkulator yang bisa dipakai ulang di semua tes."""
     table = MortalityTable(TEST_TABLE_PATH)
-    # Gunakan suku bunga 5% untuk konsistensi tes
-    return ActuarialCalculator(table, interest_rate=0.05)
+    # Gunakan suku bunga 5% dan sebutkan nama argumennya dengan jelas
+    return ActuarialCalculator(interest_rate=0.05, mortality_table=table) # BENAR
 
 def test_prob_hidup_logis(calc):
     """Memastikan probabilitas hidup n tahun lebih kecil dari probabilitas hidup 1 tahun."""
