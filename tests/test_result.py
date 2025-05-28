@@ -21,19 +21,22 @@ def test_actuarial_result_addition():
     assert isinstance(res_sum1, ActuarialResult)
     assert res_sum1.value == pytest.approx(0.3)
     assert res_sum1.formula_latex == "(A_x + A_y)"
-    assert "Premi A + Premi B" in res_sum1.description
+    assert res_sum1.description == "Premi A + Premi B"
 
     res_sum2 = res1 + 0.05
     assert isinstance(res_sum2, ActuarialResult)
     assert res_sum2.value == pytest.approx(0.15)
     assert res_sum2.formula_latex == "(A_x + 0.05)"
-    assert "Premi A + 0.05" in res_sum2.description
+    assert res_sum2.description == "Premi A + 0.05"
     
-    res_sum3 = 0.07 + res1
+    res_sum3 = 0.07 + res1 
     assert isinstance(res_sum3, ActuarialResult)
     assert res_sum3.value == pytest.approx(0.17)
-    assert res_sum3.formula_latex == f"(0.07 + {res1.formula_latex})" # <<< PERBAIKAN FORMULA
-    assert f"0.07 + ({res1.description or '('+res1.formula_latex+')'})" in res_sum3.description # <<< PERBAIKAN DESKRIPSI
+    assert res_sum3.formula_latex == f"(0.07 + {res1.formula_latex})" 
+    # Sesuai implementasi __radd__ di mortapy/result.py
+    expected_desc_radd = f"0.07 + {res1.description if res1.description else '('+res1.formula_latex+')'}"
+    assert res_sum3.description == expected_desc_radd
+
 
 def test_actuarial_result_subtraction():
     res1 = ActuarialResult(0.3, "Term_A", "Premi Term A")
@@ -43,20 +46,27 @@ def test_actuarial_result_subtraction():
     assert isinstance(res_diff1, ActuarialResult)
     assert res_diff1.value == pytest.approx(0.2)
     assert res_diff1.formula_latex == "(Term_A - Term_B)"
+    assert res_diff1.description == "Premi Term A - Premi Term B"
 
     res_diff2 = res1 - 0.05
     assert isinstance(res_diff2, ActuarialResult)
     assert res_diff2.value == pytest.approx(0.25)
     assert res_diff2.formula_latex == "(Term_A - 0.05)"
+    assert res_diff2.description == "Premi Term A - 0.05"
 
-    res_diff3 = 0.5 - res1
+    res_diff3 = 0.5 - res1 
     assert isinstance(res_diff3, ActuarialResult)
     assert res_diff3.value == pytest.approx(0.2)
     assert res_diff3.formula_latex == "(0.5 - Term_A)"
+    # Sesuai implementasi __rsub__ di mortapy/result.py
+    expected_desc_rsub = f"0.5 - {res1.description if res1.description else '('+res1.formula_latex+')'}"
+    assert res_diff3.description == expected_desc_rsub
+
 
 def test_actuarial_result_repr_latex_no_description():
     res = ActuarialResult(value=0.555, formula_latex="P_x")
     assert res._repr_latex_() == "$$ P_x = 0.55500000 $$"
+    assert res.description == "" 
 
 def test_combine_results_description_handling():
     res_desc = ActuarialResult(1, "F1", "Hasil Pertama")
@@ -70,3 +80,10 @@ def test_combine_results_description_handling():
 
     sum_with_float = res_desc + 0.5
     assert sum_with_float.description == "Hasil Pertama + 0.5"
+
+    res_no_desc_self = ActuarialResult(3, "F3") # Deskripsi default kosong
+    sum_radd_no_desc_self = 0.7 + res_no_desc_self
+    # Implementasi __radd__ di result.py: new_description = f"{other} + ({self.description or '('+self.formula_latex+')'})"
+    # Karena self.description kosong, maka ia akan menggunakan '('+self.formula_latex+')'
+    expected_desc_radd_no_self_desc = f"0.7 + ({res_no_desc_self.formula_latex})" # <<< PERBAIKAN DI SINI
+    assert sum_radd_no_desc_self.description == expected_desc_radd_no_self_desc
