@@ -8,9 +8,13 @@ from mortapy import (
     deferred_death_prob_assumption,
     fom_assumption,
     pdf_death_assumption,
+    # Impor nama fungsi momen yang benar (sesuai alias di __init__.py)
     ex_curtate_assumption,
     e_sq_curtate_assumption,
-    var_k_assumption
+    var_k_assumption,
+    ex_complete_assumption,
+    e_sq_complete_assumption,
+    var_t_assumption
 )
 from mortapy.result import ActuarialResult
 import math
@@ -20,21 +24,33 @@ from typing import Literal, Optional, Any, List, Callable
 AGE_API_ASSUM = 35
 INTEREST_RATE_API_ASSUM = 0.05
 PERIOD_FLOAT_API_ASSUM = 2.5
-# PERIOD_INT_API_ASSUM = 2 # Tidak terpakai langsung di semua tes asumsi saat ini
 DEFER_T_API_ASSUM = 1.5
 DEATH_U_API_ASSUM = 3.2
 T_OFFSET_FOM = 0.75
 N_TEMP_MOMENT_ASSUM = 3
 
-# Parameter untuk Asumsi
+# Parameter untuk Asumsi (PASTIKAN SEMUA DIDEFINISIKAN DI SINI)
 QX_PARAMS = [0.01]
 PX_PARAMS = [0.99]
 DE_MOIVRE_PARAMS = [110.0]
-BETA_DIST_PARAMS = [110.0, 1.0]
-BETA_DIST_PARAMS_ALPHA2 = [110.0, 2.0]
+BETA_DIST_PARAMS = [110.0, 1.0] # Untuk alpha = 1 (sama dengan De Moivre)
+BETA_DIST_PARAMS_ALPHA2 = [110.0, 2.0] # Untuk alpha = 2
 CFM_PARAMS = [0.02]
 GOMPERTZ_PARAMS = [0.00005, 1.09]
 MAKEHAM_PARAMS = [0.0001, 0.00003, 1.1]
+
+# Daftar asumsi untuk tes smoke NSP dan Anuitas
+ALL_ASSUMPTIONS_WITH_PARAMS_FOR_SMOKE = [
+    ('constant_qx', QX_PARAMS, "q_x konstan"),
+    ('constant_px', PX_PARAMS, "p_x konstan"),
+    ('de_moivre', DE_MOIVRE_PARAMS, "de moivre"),
+    ('beta_distribution', BETA_DIST_PARAMS, "beta dist."), # Menggunakan BETA_DIST_PARAMS yang sudah didefinisikan
+    ('beta_distribution', BETA_DIST_PARAMS_ALPHA2, "beta dist."),
+    ('constant_mu_cfm', CFM_PARAMS, "cfm"),
+    ('gompertz', GOMPERTZ_PARAMS, "gompertz"),
+    ('makeham', MAKEHAM_PARAMS, "makeham"),
+]
+
 
 # === Tes untuk survival_probability_from_assumption ===
 @pytest.mark.parametrize("assumption_type, params, manual_calc_func, expected_desc_keyword_part", [
@@ -167,17 +183,6 @@ def test_pdf_death_various_assumptions(assumption_type, params):
 
 
 # --- Tes untuk NSP dan Anuitas ---
-ALL_ASSUMPTIONS_WITH_PARAMS_FOR_SMOKE = [
-    ('constant_qx', QX_PARAMS, "q_x konstan"),
-    ('constant_px', PX_PARAMS, "p_x konstan"),
-    ('de_moivre', DE_MOIVRE_PARAMS, "de moivre"),
-    ('beta_distribution', BETA_DIST_PARAMS, "beta dist."), # Menggunakan BETA_DIST_PARAMS
-    ('beta_distribution', BETA_DIST_PARAMS_ALPHA2, "beta dist."),
-    ('constant_mu_cfm', CFM_PARAMS, "cfm"),
-    ('gompertz', GOMPERTZ_PARAMS, "gompertz"),
-    ('makeham', MAKEHAM_PARAMS, "makeham"),
-]
-
 @pytest.mark.parametrize("assumption_type, params, expected_desc_keyword_part", ALL_ASSUMPTIONS_WITH_PARAMS_FOR_SMOKE)
 def test_nsp_wl_all_assumptions_smoke(assumption_type, params, expected_desc_keyword_part):
     result = nsp_wl_assumption(
@@ -263,7 +268,7 @@ def test_var_k_various_assumptions(assumption_type, params, n_temp_test, expecte
         n_temp=n_temp_test
     )
     assert isinstance(result, ActuarialResult)
-    assert result.value >= 0
+    assert result.value >= 0 # Variansi bisa 0
     ex_res = ex_curtate_assumption(AGE_API_ASSUM, INTEREST_RATE_API_ASSUM, assumption_type, params, n_temp_test) # type: ignore
     e_sq_res = e_sq_curtate_assumption(AGE_API_ASSUM, INTEREST_RATE_API_ASSUM, assumption_type, params, n_temp_test) # type: ignore
     assert result.value == pytest.approx(e_sq_res.value - (ex_res.value**2), abs=1e-7)
@@ -273,8 +278,59 @@ def test_var_k_various_assumptions(assumption_type, params, n_temp_test, expecte
     assert result.formula_latex == rf"Var[K_{{{expected_subscript}}}]"
     assert expected_desc_keyword_part.lower() in result.description.lower()
 
+# --- Tes untuk Momen Complete ---
+@pytest.mark.parametrize("assumption_type, params, n_temp_test, expected_desc_keyword_part", [
+    ('constant_qx', QX_PARAMS, None, "q_x konstan"),
+    ('de_moivre', DE_MOIVRE_PARAMS, N_TEMP_MOMENT_ASSUM, "de moivre"),
+    ('beta_distribution', BETA_DIST_PARAMS_ALPHA2, None, "beta dist."),
+])
+def test_ex_complete_various_assumptions(assumption_type, params, n_temp_test, expected_desc_keyword_part):
+    result = ex_complete_assumption(
+        age=AGE_API_ASSUM, interest_rate=INTEREST_RATE_API_ASSUM,
+        assumption_type=assumption_type, params=params, n_temp=n_temp_test # type: ignore
+    )
+    assert isinstance(result, ActuarialResult); assert result.value >= 0
+    expected_subscript = str(AGE_API_ASSUM)
+    if n_temp_test is not None: expected_subscript += rf":\overline{{{n_temp_test}}}|"
+    assert result.formula_latex == rf"\mathring{{e}}_{{{expected_subscript}}}"
+    assert expected_desc_keyword_part.lower() in result.description.lower()
+
+@pytest.mark.parametrize("assumption_type, params, n_temp_test, expected_desc_keyword_part", [
+    ('constant_px', PX_PARAMS, None, "p_x konstan"),
+    ('constant_mu_cfm', CFM_PARAMS, N_TEMP_MOMENT_ASSUM, "cfm"),
+    ('gompertz', GOMPERTZ_PARAMS, None, "gompertz")
+])
+def test_e_sq_complete_various_assumptions(assumption_type, params, n_temp_test, expected_desc_keyword_part):
+    result = e_sq_complete_assumption(
+        age=AGE_API_ASSUM, interest_rate=INTEREST_RATE_API_ASSUM,
+        assumption_type=assumption_type, params=params, n_temp=n_temp_test # type: ignore
+    )
+    assert isinstance(result, ActuarialResult); assert result.value >= 0
+    expected_subscript = str(AGE_API_ASSUM)
+    if n_temp_test is not None: expected_subscript += rf":\overline{{{n_temp_test}}}|"
+    assert result.formula_latex == rf"E[T_{{{expected_subscript}}}^2]"
+    assert expected_desc_keyword_part.lower() in result.description.lower()
+
+@pytest.mark.parametrize("assumption_type, params, n_temp_test, expected_desc_keyword_part", [
+    ('de_moivre', DE_MOIVRE_PARAMS, None, "de moivre"),
+    ('beta_distribution', BETA_DIST_PARAMS_ALPHA2, N_TEMP_MOMENT_ASSUM, "beta dist."),
+    ('makeham', MAKEHAM_PARAMS, None, "makeham")
+])
+def test_var_t_various_assumptions(assumption_type, params, n_temp_test, expected_desc_keyword_part):
+    result = var_t_assumption(
+        age=AGE_API_ASSUM, interest_rate=INTEREST_RATE_API_ASSUM,
+        assumption_type=assumption_type, params=params, n_temp=n_temp_test # type: ignore
+    )
+    assert isinstance(result, ActuarialResult); assert result.value >= -1e-9
+    ex_circ_res = ex_complete_assumption(AGE_API_ASSUM, INTEREST_RATE_API_ASSUM, assumption_type, params, n_temp_test)
+    e_sq_circ_res = e_sq_complete_assumption(AGE_API_ASSUM, INTEREST_RATE_API_ASSUM, assumption_type, params, n_temp_test)
+    assert result.value == pytest.approx(e_sq_circ_res.value - (ex_circ_res.value**2), abs=1e-7)
+    expected_subscript = str(AGE_API_ASSUM)
+    if n_temp_test is not None: expected_subscript += rf":\overline{{{n_temp_test}}}|"
+    assert result.formula_latex == rf"Var[T_{{{expected_subscript}}}]"
+    assert expected_desc_keyword_part.lower() in result.description.lower()
+
 def test_invalid_assumption_parameters_extended():
-    """Tes untuk parameter asumsi yang tidak valid (lanjutan)."""
     with pytest.raises(ValueError):
         survival_prob_assumption(AGE_API_ASSUM, 1.0, INTEREST_RATE_API_ASSUM, 'gompertz', params=[0.001])
     with pytest.raises(ValueError):

@@ -4,7 +4,7 @@ import math
 from .core_calculator import ActuarialCalculator
 from .result import ActuarialResult
 
-# Default values
+# (DEFAULT values tetap sama)
 DEFAULT_OMEGA_DEMOIVRE: int = 110 
 DEFAULT_ALPHA_BETA_DIST: float = 1.0 
 DEFAULT_MU_CFM: float = 0.02 
@@ -34,11 +34,12 @@ def _create_assumption_functions(
         Callable[[int, float], float], 
         Callable[[int, float], float]  
     ]:
+    # (Isi fungsi ini tetap sama seperti versi terakhir yang sudah benar)
     qx_func_yearly: Callable[[int], float]
     px_func_yearly: Callable[[int], float]
     mu_func_continuous: Callable[[int, float], float]
     px_func_continuous: Callable[[int, float], float] 
-    omega: int = 150 # Default omega tinggi, akan di-override oleh De Moivre/Beta
+    omega: int = 150 
     assumption_description: str = ""
 
     if assumption_type == 'constant_qx':
@@ -168,7 +169,7 @@ def _create_assumption_functions(
             integral_A_t = A_m * period
             integral_Bc_part_t: float
             if abs(c_m - 1.0) < 1e-9:
-                integral_Bc_part_t = B_m * period # * (c_m ** age_input) tidak ada jika c=1
+                integral_Bc_part_t = B_m * period 
             else:
                 integral_Bc_part_t = B_m * (c_m**age_input) * (c_m**period - 1.0) / math.log(c_m)
             return math.exp(-(integral_A_t + integral_Bc_part_t))
@@ -183,164 +184,113 @@ def _create_assumption_functions(
 # --- Fungsi API Publik Berbasis Asumsi ---
 
 def survival_probability_from_assumption(
-    age: int,
-    period: float, 
-    interest_rate: float,
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float]
+    age: int, period: float, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float]
 ) -> ActuarialResult:
-    """
-    Menghitung probabilitas hidup _{period}p_{age} berdasarkan asumsi distribusi murni.
-    """
-    _ , px_func_yearly, omega_calc, assumption_desc_short, _, px_func_cont = \
-        _create_assumption_functions(assumption_type, params)
-    
+    qx_f_yr, px_f_yr, omg, assumption_desc, mu_f_cont, px_f_cont = _create_assumption_functions(assumption_type, params)
     calc = ActuarialCalculator(interest_rate=interest_rate)
     value: float
-    
     if assumption_type in ['de_moivre', 'beta_distribution', 'constant_mu_cfm', 'gompertz', 'makeham']:
-        value = px_func_cont(age, period)
+        value = px_f_cont(age, period)
     elif assumption_type in ['constant_qx', 'constant_px']:
-        value = calc.survival_probability_from_assumption(age, period, px_func_yearly, omega_calc) 
-    else: 
-        raise NotImplementedError(f"Logika survival untuk {assumption_type} belum ada di API.")
-
-    period_str = str(int(period)) if period == int(period) else f"{period:.2f}"
-    formula_str = rf"{{}}_{{{period_str}}}p_{{{age}}}"
-    description = f"Probabilitas Hidup {period_str} Tahun ({assumption_desc_short}), Usia {age}"
-    return ActuarialResult(value, formula_str, description)
+        value = calc.survival_probability_from_assumption(age, period, px_f_yr, omg) 
+    else: raise NotImplementedError(f"Logika survival untuk {assumption_type} belum ada di API.")
+    p_str = str(int(period)) if period == int(period) else f"{period:.2f}"
+    f_str = rf"{{}}_{{{p_str}}}p_{{{age}}}"
+    desc = f"Probabilitas Hidup {p_str} Tahun ({assumption_desc}), Usia {age}"
+    return ActuarialResult(value, f_str, desc)
 
 def death_probability_from_assumption(
-    age: int,
-    period: float,
-    interest_rate: float,
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float]
+    age: int, period: float, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float]
 ) -> ActuarialResult:
-    """Menghitung _{period}q_{age} berdasarkan asumsi."""
-    survival_result = survival_probability_from_assumption(age, period, interest_rate, assumption_type, params)
-    value = 1.0 - survival_result.value
-    
-    period_str = str(int(period)) if period == int(period) else f"{period:.2f}"
-    formula_str = rf"{{}}_{{{period_str}}}q_{{{age}}}"
-    
-    assumption_desc_from_survival = "asumsi tidak diketahui"
-    if "(" in survival_result.description and ")" in survival_result.description:
-        assumption_desc_from_survival = survival_result.description.split("(", 1)[1].rsplit(")", 1)[0]
-        
-    description = f"Probabilitas Kematian {period_str} Tahun ({assumption_desc_from_survival}), Usia {age}"
-    return ActuarialResult(value, formula_str, description)
+    surv_res = survival_probability_from_assumption(age, period, interest_rate, assumption_type, params)
+    val = 1.0 - surv_res.value
+    p_str = str(int(period)) if period == int(period) else f"{period:.2f}"
+    f_str = rf"{{}}_{{{p_str}}}q_{{{age}}}"
+    desc_suffix = surv_res.description.split("(", 1)[1].split(")", 1)[0] if "(" in surv_res.description else "asumsi tidak diketahui"
+    desc = f"Probabilitas Kematian {p_str} Tahun ({desc_suffix}), Usia {age}"
+    return ActuarialResult(val, f_str, desc)
 
 def deferred_death_probability_from_assumption(
-    age: int,
-    deferral_period: float,
-    death_period: float,
-    interest_rate: float,
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float]
+    age: int, deferral_period: float, death_period: float, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float]
 ) -> ActuarialResult:
-    """Menghitung _{deferral}|{death_period} q_x berdasarkan asumsi (formula perkalian)."""
-    if deferral_period < 0 or death_period <= 0:
-        raise ValueError("Periode penundaan non-negatif & periode kematian positif.")
-
+    if deferral_period < 0 or death_period <= 0: raise ValueError("Periode tidak valid.")
+    
+    # Gunakan formula perkalian: _t p_x * _u q_{x+t}
     # _t p_x
-    prob_survive_deferral_result = survival_probability_from_assumption(age, deferral_period, interest_rate, assumption_type, params)
-    tpx_value = prob_survive_deferral_result.value
-    if abs(tpx_value) < 1e-12: 
-        # Buat string formula yang sesuai
-        deferral_str_f = str(int(deferral_period)) if deferral_period == int(deferral_period) else f"{deferral_period:.2f}"
-        death_period_str_f = str(int(death_period)) if death_period == int(death_period) else f"{death_period:.2f}"
-        formula_str_f = rf"{{}}_{{{deferral_str_f}|{death_period_str_f}}}q_{{{age}}}"
-        desc_f = prob_survive_deferral_result.description.replace("Probabilitas Hidup", "Prob. Kematian Ditunda")
-        return ActuarialResult(0.0, formula_str_f, desc_f)
+    tpx_res = survival_probability_from_assumption(age, deferral_period, interest_rate, assumption_type, params)
+    tpx_val = tpx_res.value
+    if abs(tpx_val) < 1e-12:
+        defer_str_f = str(int(deferral_period)) if deferral_period == int(deferral_period) else f"{deferral_period:.2f}"
+        death_p_str_f = str(int(death_period)) if death_period == int(death_period) else f"{death_period:.2f}"
+        f_str_f = rf"{{}}_{{{defer_str_f}|{death_p_str_f}}}q_{{{age}}}"
+        desc_f = tpx_res.description.replace("Probabilitas Hidup", "Prob. Kematian Ditunda")
+        return ActuarialResult(0.0, f_str_f, desc_f)
 
     # _u q_{x+t}
-    # Untuk menghitung _u q_{x+t}, usia awal adalah age + deferral_period, periode adalah death_period
-    # Kita panggil death_probability_from_assumption dengan parameter yang disesuaikan.
-    # Perlu px_func_cont untuk menangani usia awal non-bulat (age_after_deferral) dengan benar.
-    # Atau, jika px_func_cont tidak dipakai, death_probability akan menggunakan px_func_yearly
-    # dan ActuarialCalculator akan melakukan interpolasi fraksional.
+    # Untuk asumsi kontinu, usia awal bisa float. Untuk diskrit + interpolasi, perlu ditangani.
+    # Fungsi death_probability_from_assumption kita menerima usia awal integer.
+    # Ini bagian yang rumit jika deferral_period adalah float untuk asumsi constant_qx/px.
+    # Kita akan memanggilnya dengan usia bulat terdekat, dan periode yang disesuaikan.
     
-    # Pendekatan yang lebih bersih: _t p_x * (1 - _u p_{x+t})
-    # di mana _u p_{x+t} = _(t+u)p_x / _t p_x
+    # Pendekatan paling akurat untuk _uq_{x+t} adalah 1 - _up_{x+t}
+    # di mana _up_{x+t} = _{t+u}p_x / _tp_x
     
-    prob_survive_total_period_result = survival_probability_from_assumption(age, deferral_period + death_period, interest_rate, assumption_type, params)
-    u_px_plus_t = prob_survive_total_period_result.value / tpx_value if tpx_value > 1e-12 else 0.0
-    prob_die_within_n_after_deferral_val = 1.0 - u_px_plus_t
+    total_period = deferral_period + death_period
+    t_plus_u_px_res = survival_probability_from_assumption(age, total_period, interest_rate, assumption_type, params)
     
-    value = tpx_value * prob_die_within_n_after_deferral_val
+    u_px_plus_t_val = t_plus_u_px_res.value / tpx_val if tpx_val > 1e-12 else 0.0
+    u_qx_plus_t_val = 1.0 - u_px_plus_t_val
+    
+    value = tpx_val * u_qx_plus_t_val
     
     deferral_str = str(int(deferral_period)) if deferral_period == int(deferral_period) else f"{deferral_period:.2f}"
     death_period_str = str(int(death_period)) if death_period == int(death_period) else f"{death_period:.2f}"
-    
     formula_str = rf"{{}}_{{{deferral_str}|{death_period_str}}}q_{{{age}}}"
-    assumption_desc_from_survival = "asumsi tidak diketahui"
-    if "(" in prob_survive_deferral_result.description and ")" in prob_survive_deferral_result.description:
-        assumption_desc_from_survival = prob_survive_deferral_result.description.split("(", 1)[1].rsplit(")", 1)[0]
+    assumption_desc_from_survival = tpx_res.description.split("(", 1)[1].split(")", 1)[0] if "(" in tpx_res.description else "asumsi tidak diketahui"
     description = f"Probabilitas Kematian Ditunda {deferral_str}|{death_period_str} ({assumption_desc_from_survival}), Usia {age}"
     return ActuarialResult(value, formula_str, description)
 
 def force_of_mortality_at_age_t(
-    age: int, 
-    t_offset: float, 
-    interest_rate: float, # Tidak dipakai langsung, untuk konsistensi
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float]
+    age: int, t_offset: float, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float]
 ) -> ActuarialResult:
-    """Menghitung μ_{age+t_offset} berdasarkan asumsi distribusi murni."""
     if t_offset < 0: raise ValueError("t_offset tidak boleh negatif.")
     _ , _ , _ , assumption_desc, mu_func_continuous, _ = _create_assumption_functions(assumption_type, params)
     value = mu_func_continuous(age, t_offset)
-    
     age_display = f"{age}"
     if t_offset > 0:
-        # age_display_val = age + t_offset # Tidak perlu ini lagi
         age_display_str_offset = f"{t_offset:.2f}".rstrip('0').rstrip('.')
         age_display += f"+{age_display_str_offset}"
-        
     formula_str = rf"\mu_{{{age_display}}}"
     description = f"Force of Mortality ({assumption_desc}), Usia Tepat {age_display}"
     return ActuarialResult(value, formula_str, description)
 
 def pdf_death_at_age_t(
-    age: int, 
-    t_period: float, 
-    interest_rate: float,
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float]
+    age: int, t_period: float, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float]
 ) -> ActuarialResult:
-    """Menghitung PDF kematian f_X(age+t_period) = _{t_period}p_{age} * μ_{age+t_period}."""
     if t_period < 0: raise ValueError("t_period tidak boleh negatif.")
     survival_result = survival_probability_from_assumption(age, t_period, interest_rate, assumption_type, params)
     tpx_value = survival_result.value
-    
-    # Untuk mu_{age+t_period}, usia bulat awalnya adalah 'age', dan offsetnya adalah 't_period'
     fom_result = force_of_mortality_at_age_t(age, t_period, interest_rate, assumption_type, params)
     mu_value_at_time_t = fom_result.value
-
     value = tpx_value * mu_value_at_time_t
-    
     tpx_formula_part = survival_result.formula_latex
     mu_formula_part = fom_result.formula_latex
-    
     formula_str = rf"{tpx_formula_part} \cdot {mu_formula_part}"
-    
     age_at_death_display_raw = age + t_period
     age_at_death_display = f"{age_at_death_display_raw:.2f}".rstrip('0').rstrip('.') if t_period > 0 else str(age)
-    
-    assumption_desc_from_survival = "asumsi tidak diketahui"
-    if "(" in survival_result.description and ")" in survival_result.description:
-        assumption_desc_from_survival = survival_result.description.split("(", 1)[1].rsplit(")", 1)[0]
+    assumption_desc_from_survival = survival_result.description.split("(", 1)[1].rsplit(")", 1)[0] if "(" in survival_result.description else "asumsi tidak diketahui"
     description = f"PDF Kematian pada Usia Tepat {age_at_death_display} ({assumption_desc_from_survival})"
     return ActuarialResult(value, formula_str, description)
 
 def nsp_whole_life_from_assumption(
-    age: int,
-    interest_rate: float,
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float]
+    age: int, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float]
 ) -> ActuarialResult:
-    """Menghitung A_x dari asumsi."""
     calc = ActuarialCalculator(interest_rate=interest_rate)
     qx_func, px_func, omega, assumption_desc, _, _ = _create_assumption_functions(assumption_type, params)
     value = calc.nsp_whole_life_from_assumption(age, qx_func, px_func, omega)
@@ -349,12 +299,9 @@ def nsp_whole_life_from_assumption(
     return ActuarialResult(value, formula_str, description)
 
 def pv_annuity_due_whole_life_from_assumption(
-    age: int,
-    interest_rate: float,
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float]
+    age: int, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float]
 ) -> ActuarialResult:
-    """Menghitung ä_x dari asumsi."""
     calc = ActuarialCalculator(interest_rate=interest_rate)
     _, px_func, omega, assumption_desc, _, _ = _create_assumption_functions(assumption_type, params)
     value = calc.pv_annuity_due_whole_life_from_assumption(age, px_func, omega)
@@ -362,63 +309,61 @@ def pv_annuity_due_whole_life_from_assumption(
     description = f"PV Anuitas Whole Life Due (Asumsi: {assumption_desc}), Usia {age}"
     return ActuarialResult(value, formula_str, description)
 
-
-# --- FUNGSI BARU UNTUK MOMEN CURTATE BERBASIS ASUMSI ---
+# --- Fungsi Momen Curtate Berbasis Asumsi ---
 def expected_curtate_future_lifetime_from_assumption(
-    age: int,
-    interest_rate: float, # Untuk konsistensi ActuarialCalculator
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float],
-    n_temp: Optional[int] = None 
+    age: int, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float],
+    n_temp: Optional[int] = None
 ) -> ActuarialResult:
-    """
-    Menghitung ekspektasi curtate future lifetime (e_x atau e_{x:n|}) 
-    berdasarkan asumsi distribusi murni.
-    """
     calc = ActuarialCalculator(interest_rate=interest_rate)
     _ , px_func_yearly, omega, assumption_desc, _, _ = _create_assumption_functions(assumption_type, params)
-    
     value = calc.ex_curtate_from_assumption(age, px_func_yearly, omega, n_temp)
-    
     subscript_content = str(age)
     term_desc = ""
     if n_temp is not None:
         subscript_content += rf":\overline{{{n_temp}}}|"
         term_desc = f"{n_temp}-tahun temporary "
-    
     formula_str = rf"e_{{{subscript_content}}}"
     description = f"Ekspektasi Curtate Future Lifetime {term_desc}(Asumsi: {assumption_desc}), Usia {age}"
     return ActuarialResult(value, formula_str, description)
 
 def second_moment_curtate_future_lifetime_from_assumption(
-    age: int,
-    interest_rate: float,
-    assumption_type: ASSUMPTION_TYPES_LITERAL,
-    params: List[float],
+    age: int, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float],
     n_temp: Optional[int] = None
 ) -> ActuarialResult:
-    """
-    Menghitung momen kedua dari curtate future lifetime (E[K_x^2] atau E[(K_{x:n|})^2])
-    berdasarkan asumsi distribusi murni.
-    """
     calc = ActuarialCalculator(interest_rate=interest_rate)
     _ , px_func_yearly, omega, assumption_desc, _, _ = _create_assumption_functions(assumption_type, params)
-
     value = calc.e_sq_curtate_from_assumption(age, px_func_yearly, omega, n_temp)
-    
     subscript_content = str(age)
-    symbol_K = "K"
-    term_desc = ""
     if n_temp is not None:
         subscript_content += rf":\overline{{{n_temp}}}|"
-        term_desc = f"{n_temp}-tahun temporary "
-    
-    formula_str = rf"E[K_{{{subscript_content}}}^2]" # Sederhanakan simbol untuk E[K^2]
-    
+    formula_str = rf"E[K_{{{subscript_content}}}^2]"
+    term_desc = f"{n_temp}-tahun temporary " if n_temp is not None else ""
     description = f"Momen Kedua Curtate Future Lifetime {term_desc}(Asumsi: {assumption_desc}), Usia {age}"
     return ActuarialResult(value, formula_str, description)
 
 def variance_curtate_future_lifetime_from_assumption(
+    age: int, interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL, params: List[float],
+    n_temp: Optional[int] = None
+) -> ActuarialResult:
+    ex_result = expected_curtate_future_lifetime_from_assumption(age, interest_rate, assumption_type, params, n_temp)
+    e_sq_result = second_moment_curtate_future_lifetime_from_assumption(age, interest_rate, assumption_type, params, n_temp)
+    value = e_sq_result.value - (ex_result.value ** 2)
+    subscript_content = str(age)
+    term_desc = ""
+    if n_temp is not None:
+        subscript_content += rf":\overline{{{n_temp}}}|"
+        term_desc = f"{n_temp}-tahun temporary "
+    formula_str = rf"Var[K_{{{subscript_content}}}]"
+    assumption_desc_from_ex = ex_result.description.split("(",1)[1].split(")",1)[0] if "(" in ex_result.description else "asumsi tidak diketahui"
+    description = f"Variansi Curtate Future Lifetime {term_desc}({assumption_desc_from_ex}), Usia {age}"
+    return ActuarialResult(value, formula_str, description)
+
+
+# --- FUNGSI BARU UNTUK MOMEN COMPLETE BERBASIS ASUMSI ---
+def expected_complete_future_lifetime_from_assumption(
     age: int,
     interest_rate: float,
     assumption_type: ASSUMPTION_TYPES_LITERAL,
@@ -426,28 +371,92 @@ def variance_curtate_future_lifetime_from_assumption(
     n_temp: Optional[int] = None
 ) -> ActuarialResult:
     """
-    Menghitung variansi dari curtate future lifetime (Var(K_x) atau Var(K_{x:n|}))
-    berdasarkan asumsi distribusi murni. Var(K) = E[K^2] - (E[K])^2.
+    Menghitung ekspektasi complete future lifetime (e_circ_x atau e_circ_{x:n|}) 
+    berdasarkan asumsi distribusi murni.
     """
-    # Tidak perlu membuat instance calc baru, karena ex dan e_sq sudah API level
-    ex_result = expected_curtate_future_lifetime_from_assumption(
-        age, interest_rate, assumption_type, params, n_temp
-    )
-    e_sq_result = second_moment_curtate_future_lifetime_from_assumption(
-        age, interest_rate, assumption_type, params, n_temp
-    )
-    
-    value = e_sq_result.value - (ex_result.value ** 2)
-    
+    calc = ActuarialCalculator(interest_rate=interest_rate)
+    qx_func_yr, px_func_yr, omega, assumption_desc, mu_func_cont, px_func_cont = \
+        _create_assumption_functions(assumption_type, params)
+    value: float
+
+    if assumption_type in ['de_moivre', 'beta_distribution', 'constant_mu_cfm', 'gompertz', 'makeham'] and n_temp is None:
+        # Whole life - Hitung integral dari _t p_x dt dari 0 hingga omega-x
+        # atau gunakan formula closed-form jika ada
+        if assumption_type == 'de_moivre': value = (omega - age) / 2.0 if age < omega else 0.0
+        elif assumption_type == 'beta_distribution': value = (omega - age) / (params[1] + 1.0) if age < omega else 0.0
+        elif assumption_type == 'constant_mu_cfm': value = 1.0 / params[0] if params[0] > 1e-9 else float('inf')
+        else: # Gompertz, Makeham - integral numerik atau aproksimasi
+            value = calc.ex_complete_from_assumption(age, px_func_yr, qx_func_yr, omega, n_temp, 'udd', px_func_cont) # Aproksimasi UDD
+    else: # constant_qx, constant_px, atau kasus temporary
+        value = calc.ex_complete_from_assumption(age, px_func_yr, qx_func_yr, omega, n_temp, 'udd', px_func_cont if assumption_type in ['de_moivre', 'beta_distribution', 'constant_mu_cfm', 'gompertz', 'makeham'] else None)
+
     subscript_content = str(age)
     term_desc = ""
-    assumption_desc_from_ex = ex_result.description.split("(",1)[1].split(")",1)[0] if "(" in ex_result.description else "Asumsi tidak diketahui"
-
-
     if n_temp is not None:
         subscript_content += rf":\overline{{{n_temp}}}|"
         term_desc = f"{n_temp}-tahun temporary "
-        
-    formula_str = rf"Var[K_{{{subscript_content}}}]"
-    description = f"Variansi Curtate Future Lifetime {term_desc}({assumption_desc_from_ex}), Usia {age}"
+    formula_str = rf"\mathring{{e}}_{{{subscript_content}}}"
+    description = f"Ekspektasi Complete Future Lifetime {term_desc}(Asumsi: {assumption_desc}), Usia {age}"
+    return ActuarialResult(value, formula_str, description)
+
+def second_moment_complete_future_lifetime_from_assumption(
+    age: int,
+    interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL,
+    params: List[float],
+    n_temp: Optional[int] = None
+) -> ActuarialResult:
+    """
+    Menghitung E[T_x^2] atau E[(T_{x:n|})^2] berdasarkan asumsi murni.
+    """
+    calc = ActuarialCalculator(interest_rate=interest_rate)
+    qx_func_yr, px_func_yr, omega, assumption_desc, mu_func_cont, px_func_cont = \
+        _create_assumption_functions(assumption_type, params)
+    value: float
+
+    if assumption_type in ['de_moivre', 'beta_distribution', 'constant_mu_cfm'] and n_temp is None:
+        if assumption_type == 'de_moivre': value = ((omega - age)**2) / 3.0 if age < omega else 0.0
+        elif assumption_type == 'beta_distribution':
+            omega_val, alpha_val = params[0], params[1] # type: ignore
+            value = 2 * ((omega_val - age)**2) / ((alpha_val + 1.0)*(alpha_val + 2.0)) if age < omega_val else 0.0
+        elif assumption_type == 'constant_mu_cfm':
+            mu_val = params[0]
+            value = 2.0 / (mu_val**2) if mu_val > 1e-9 else float('inf')
+        else: # Fallback untuk Gompertz, Makeham (integral rumit)
+            value = calc.e_sq_complete_from_assumption(age, px_func_yr, qx_func_yr, omega, n_temp, 'udd', px_func_cont)
+    else: # constant_qx, constant_px, atau kasus temporary
+        value = calc.e_sq_complete_from_assumption(age, px_func_yr, qx_func_yr, omega, n_temp, 'udd', px_func_cont if assumption_type in ['de_moivre', 'beta_distribution', 'constant_mu_cfm', 'gompertz', 'makeham'] else None)
+
+    subscript_content = str(age)
+    term_desc = ""
+    if n_temp is not None:
+        subscript_content += rf":\overline{{{n_temp}}}|"
+        term_desc = f"{n_temp}-tahun temporary "
+    formula_str = rf"E[T_{{{subscript_content}}}^2]"
+    description = f"Momen Kedua Complete Future Lifetime {term_desc}(Asumsi: {assumption_desc}), Usia {age}"
+    return ActuarialResult(value, formula_str, description)
+
+def variance_complete_future_lifetime_from_assumption(
+    age: int,
+    interest_rate: float,
+    assumption_type: ASSUMPTION_TYPES_LITERAL,
+    params: List[float],
+    n_temp: Optional[int] = None
+) -> ActuarialResult:
+    """
+    Menghitung Var(T_x) atau Var(T_{x:n|}) berdasarkan asumsi murni.
+    Var(T) = E[T^2] - (E[T])^2.
+    """
+    ex_circ_result = expected_complete_future_lifetime_from_assumption(age, interest_rate, assumption_type, params, n_temp)
+    e_sq_circ_result = second_moment_complete_future_lifetime_from_assumption(age, interest_rate, assumption_type, params, n_temp)
+    value = e_sq_circ_result.value - (ex_circ_result.value ** 2)
+    
+    subscript_content = str(age)
+    term_desc = ""
+    assumption_desc_from_ex = ex_circ_result.description.split("(",1)[1].split(")",1)[0] if "(" in ex_circ_result.description else "asumsi tidak diketahui"
+    if n_temp is not None:
+        subscript_content += rf":\overline{{{n_temp}}}|"
+        term_desc = f"{n_temp}-tahun temporary "
+    formula_str = rf"Var[T_{{{subscript_content}}}]"
+    description = f"Variansi Complete Future Lifetime {term_desc}({assumption_desc_from_ex}), Usia {age}"
     return ActuarialResult(value, formula_str, description)

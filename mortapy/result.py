@@ -29,7 +29,7 @@ class ActuarialResult:
                                          Defaults to "".
         """
         self.value: float = value
-        self.formula_latex: str = str(formula_latex).strip('$') 
+        self.formula_latex: str = str(formula_latex).strip('$')
         self.description: str = str(description)
 
     def __repr__(self) -> str:
@@ -63,7 +63,6 @@ class ActuarialResult:
         """
         display(Math(f"{self.formula_latex} = {self.value:.8f}"))
         if self.description:
-            # Menggunakan print agar konsisten dengan permintaan
             print(f"Deskripsi: {self.description}")
 
     def _combine_results(self, other: Any, op_symbol: str, op_func: Callable[[float, float], float]) -> 'ActuarialResult':
@@ -77,12 +76,11 @@ class ActuarialResult:
 
         Returns:
             ActuarialResult: Objek ActuarialResult baru hasil operasi.
-        
+
         Raises:
             NotImplemented: Jika tipe 'other' tidak didukung.
         """
         new_description_parts = []
-        # Membangun deskripsi baru berdasarkan deskripsi yang ada atau formula
         current_desc_or_formula = self.description if self.description else f"({self.formula_latex})"
         new_description_parts.append(current_desc_or_formula)
         new_description_parts.append(op_symbol)
@@ -97,73 +95,34 @@ class ActuarialResult:
             new_formula = f"({self.formula_latex} {op_symbol} {other})"
             new_description_parts.append(str(other))
         else:
-            return NotImplemented # Mengikuti konvensi Python untuk operasi yang tidak didukung
-        
+            return NotImplemented
+
         return ActuarialResult(new_value, new_formula, " ".join(new_description_parts))
 
     def __add__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """
-        Mendefinisikan operasi penjumlahan (self + other).
-
-        Args:
-            other (Union[float, 'ActuarialResult']): Objek ActuarialResult lain atau angka.
-
-        Returns:
-            ActuarialResult: Hasil penjumlahan.
-        """
+        """Mendefinisikan operasi penjumlahan (self + other)."""
         return self._combine_results(other, "+", lambda a, b: a + b)
 
     def __radd__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """
-        Mendefinisikan operasi penjumlahan reflektif (other + self).
-
-        Args:
-            other (Union[float, 'ActuarialResult']): Angka atau objek ActuarialResult lain.
-
-        Returns:
-            ActuarialResult: Hasil penjumlahan.
-        """
-        # Untuk 'angka + objek', kita balik urutan formula dan deskripsinya agar lebih intuitif
+        """Mendefinisikan operasi penjumlahan reflektif (other + self)."""
         if isinstance(other, (int, float)):
             new_value = other + self.value
             new_formula = f"({other} + {self.formula_latex})"
-            other_desc_or_formula = self.description if self.description else f"({self.formula_latex})"
-            new_description = f"{other} + {other_desc_or_formula}"
+            self_desc_part = self.description if self.description else f"({self.formula_latex})"
+            new_description = f"{other} + {self_desc_part}"
             return ActuarialResult(new_value, new_formula, new_description)
-        # Jika 'other' juga ActuarialResult, __add__ dari 'other' yang akan dipanggil jika didefinisikan,
-        # atau ini bisa memanggil __add__ milik self jika __add__ milik other NotImplemented.
-        # Untuk konsistensi, jika 'other' adalah ActuarialResult, serahkan pada __add__ dari 'other'.
-        # Namun, agar lebih aman, kita bisa panggil __add__ dari self jika other adalah ActuarialResult.
-        elif isinstance(other, ActuarialResult):
-             return self._combine_results(other, "+", lambda a, b: b + a) # b + a agar urutan other dulu
         return NotImplemented
 
     def __sub__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """
-        Mendefinisikan operasi pengurangan (self - other).
-
-        Args:
-            other (Union[float, 'ActuarialResult']): Objek ActuarialResult lain atau angka.
-
-        Returns:
-            ActuarialResult: Hasil pengurangan.
-        """
+        """Mendefinisikan operasi pengurangan (self - other)."""
         return self._combine_results(other, "-", lambda a, b: a - b)
 
     def __rsub__(self, other: float) -> 'ActuarialResult':
-        """
-        Mendefinisikan operasi pengurangan reflektif (other - self).
-
-        Args:
-            other (float): Angka.
-
-        Returns:
-            ActuarialResult: Hasil pengurangan.
-        """
+        """Mendefinisikan operasi pengurangan reflektif (other - self)."""
         if isinstance(other, (int, float)):
             new_value = other - self.value
             new_formula = f"({other} - {self.formula_latex})"
-            other_desc_or_formula = self.description if self.description else f"({self.formula_latex})"
-            new_description = f"{other} - {other_desc_or_formula}"
+            self_desc_part = self.description if self.description else f"({self.formula_latex})"
+            new_description = f"{other} - {self_desc_part}"
             return ActuarialResult(new_value, new_formula, new_description)
         return NotImplemented

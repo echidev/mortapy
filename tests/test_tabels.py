@@ -3,9 +3,9 @@ import pytest
 from mortapy.tables.base import MortalityTable
 import os
 import pandas as pd
-from typing import Literal, Optional, Any
+from typing import Literal, Optional, Any 
 
-# (Logika path TEST_TABLE_PATH_DEFAULT tetap sama)
+# Logika path untuk TEST_TABLE_PATH_DEFAULT
 try:
     path_candidate_1 = os.path.join("mortapy", "tables", "tabel_mortalita_penduduk_indonesia_2023.csv")
     path_candidate_2 = os.path.join(os.path.dirname(__file__), '..', 'mortapy', 'tables', 'tabel_mortalita_penduduk_indonesia_2023.csv')
@@ -13,7 +13,7 @@ try:
         TEST_TABLE_PATH_DEFAULT = path_candidate_1
     elif os.path.exists(path_candidate_2):
         TEST_TABLE_PATH_DEFAULT = path_candidate_2
-    else: # Fallback
+    else: 
         TEST_TABLE_PATH_DEFAULT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'mortapy', 'tables', 'tabel_mortalita_penduduk_indonesia_2023.csv')
         if not os.path.exists(TEST_TABLE_PATH_DEFAULT):
             TEST_TABLE_PATH_DEFAULT = "mortapy/tables/tabel_mortalita_penduduk_indonesia_2023.csv" # Last resort
@@ -76,5 +76,5 @@ def test_unisex_table_loading_and_access(unisex_table_path):
     assert table.has_gender_columns is False
     assert table.max_age == 110
     assert table.qx(30) == 0.01
-    assert table.qx(30, 'pria') == 0.01 # Gender diabaikan
+    assert table.qx(30, 'pria') == 0.01 
     assert table.px(31) == pytest.approx(1.0 - 0.015)
