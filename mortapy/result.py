@@ -1,6 +1,6 @@
 # mortapy/result.py
 from IPython.display import display, Math
-from typing import Union, Any, Callable # Tambahkan Callable
+from typing import Union, Any, Callable
 
 class ActuarialResult:
     """
@@ -14,9 +14,9 @@ class ActuarialResult:
         Args:
             value (float): Nilai numerik dari hasil perhitungan.
             formula_latex (str): Representasi simbol LaTeX utama dari hasil.
-                                 Contoh: "A_x", "\\ddot{a}_{x:\overline{n}|}".
+                                 Contoh: "A_x", "\\ddot{a}_{x:\\overline{n}|}".
                                  Tidak perlu menyertakan "$$" atau "= nilai".
-            description (str, optional): Deskripsi kontekstual dari hasil. 
+            description (str, optional): Deskripsi kontekstual dari hasil.
                                          Defaults to "".
         """
         self.value: float = value
@@ -64,19 +64,25 @@ class ActuarialResult:
         return ActuarialResult(new_value, new_formula, " ".join(new_description_parts))
 
     def __add__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """Menambahkan nilai ActuarialResult dengan ActuarialResult lain atau angka."""
         return self._combine_results(other, "+", lambda a, b: a + b)
 
     def __radd__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """Menambahkan angka dengan ActuarialResult (operasi reflektif)."""
-        return self.__add__(other)
+        # Untuk operasi angka + objek, kita panggil __add__ dari objek
+        # dengan 'other' sebagai argumen kiri jika logika _combine_results kita
+        # selalu menempatkan self.formula_latex di kiri.
+        # Atau, kita bisa buat logika khusus. Untuk sekarang, kita samakan dengan __add__.
+        if isinstance(other, (int, float)):
+            new_value = other + self.value
+            new_formula = f"({other} + {self.formula_latex})" # Urutan dibalik untuk formula
+            new_description = f"{other} + ({self.description or self.formula_latex})"
+            return ActuarialResult(new_value, new_formula, new_description)
+        return NotImplemented
+
 
     def __sub__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """Mengurangkan ActuarialResult lain atau angka dari ActuarialResult ini."""
         return self._combine_results(other, "-", lambda a, b: a - b)
 
     def __rsub__(self, other: float) -> 'ActuarialResult':
-        """Mengurangkan ActuarialResult dari angka (operasi reflektif)."""
         if isinstance(other, (int, float)):
             new_value = other - self.value
             new_formula = f"({other} - {self.formula_latex})"

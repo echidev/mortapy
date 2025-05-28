@@ -1,7 +1,7 @@
 # mortapy/tables/base.py
 
 import pandas as pd
-from typing import Literal, Optional # <<< BARIS INI YANG DITAMBAHKAN/DIPASTIKAN ADA
+from typing import Literal, Optional 
 
 class MortalityTable:
     """
@@ -28,7 +28,6 @@ class MortalityTable:
             self.table.set_index('x', inplace=True)
             self.max_age = self.table.index.max()
 
-            # Deteksi kolom gender secara otomatis
             self.has_gender_columns = 'qx_pria' in self.table.columns and \
                                       'qx_wanita' in self.table.columns
             self.is_unisex_table = 'qx' in self.table.columns and not self.has_gender_columns
@@ -59,21 +58,20 @@ class MortalityTable:
             float: Nilai qx. Mengembalikan 1.0 jika usia di luar batas tabel atau negatif.
         
         Raises:
-            ValueError: Jika gender diperlukan tetapi tidak diberikan, atau gender tidak valid.
+            ValueError: Jika gender diperlukan tetapi tidak diberikan, atau gender tidak valid untuk tabel.
+            LookupError: Jika struktur kolom qx pada tabel tidak dikenali.
         """
-        if age < 0 or age > self.max_age : # Usia di luar tabel
+        if age < 0 or age > self.max_age : 
             return 1.0
         
         if self.has_gender_columns:
             if gender not in ['pria', 'wanita']:
-                raise ValueError("Parameter 'gender' harus 'pria' atau 'wanita' untuk tabel ini.")
+                raise ValueError("Parameter 'gender' harus 'pria' atau 'wanita' untuk tabel berbasis gender ini.")
             column = 'qx_pria' if gender == 'pria' else 'qx_wanita'
             return self.table.loc[age, column]
         elif self.is_unisex_table:
-            # Jika tabel unisex, parameter gender diabaikan
             return self.table.loc[age, 'qx']
         else:
-            # Kondisi ini seharusnya tidak tercapai karena __init__ sudah melakukan validasi
             raise LookupError("Struktur kolom qx pada tabel tidak dikenali atau tidak konsisten.")
 
     def px(self, age: int, gender: Optional[Literal['pria', 'wanita']] = None) -> float:
