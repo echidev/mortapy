@@ -14,13 +14,14 @@ class ActuarialResult:
         Args:
             value (float): Nilai numerik dari hasil perhitungan.
             formula_latex (str): Representasi simbol LaTeX utama dari hasil.
-                                 Contoh: "A_x", "\\ddot{a}_{x:\overline{n}|}".
+                                 Contoh: "A_x", "\\ddot{a}_{x:\\overline{n}|}".
                                  Tidak perlu menyertakan "$$" atau "= nilai".
             description (str, optional): Deskripsi kontekstual dari hasil. 
                                          Defaults to "".
         """
         self.value: float = value
-        self.formula_latex: str = r"{}".format(str(formula_latex).strip('$'))
+        # Pastikan formula adalah string dan bersih dari apitan $ yang tidak perlu
+        self.formula_latex: str = str(formula_latex).strip('$') 
         self.description: str = str(description)
 
     def __repr__(self) -> str:
@@ -29,6 +30,7 @@ class ActuarialResult:
 
     def _repr_latex_(self) -> str:
         """Representasi LaTeX untuk Jupyter Notebook/IPython (dipanggil otomatis)."""
+        # Format paling sederhana: $$ FORMULA = HASIL $$
         return f"$$ {self.formula_latex} = {self.value:.8f} $$"
 
     def show(self) -> None:
@@ -64,19 +66,15 @@ class ActuarialResult:
         return ActuarialResult(new_value, new_formula, " ".join(new_description_parts))
 
     def __add__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """Menambahkan nilai ActuarialResult dengan ActuarialResult lain atau angka."""
         return self._combine_results(other, "+", lambda a, b: a + b)
 
     def __radd__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """Menambahkan angka dengan ActuarialResult (operasi reflektif)."""
         return self.__add__(other)
 
     def __sub__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        """Mengurangkan ActuarialResult lain atau angka dari ActuarialResult ini."""
         return self._combine_results(other, "-", lambda a, b: a - b)
 
     def __rsub__(self, other: float) -> 'ActuarialResult':
-        """Mengurangkan ActuarialResult dari angka (operasi reflektif)."""
         if isinstance(other, (int, float)):
             new_value = other - self.value
             new_formula = f"({other} - {self.formula_latex})"
