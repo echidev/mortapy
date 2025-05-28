@@ -1,28 +1,21 @@
 # tests/test_tables.py
 import pytest
-from mortapy.tables.base import MortalityTable # Pastikan import dari lokasi yang benar
+from mortapy.tables.base import MortalityTable
 import os
 import pandas as pd
+from typing import Literal, Optional, Any # Pastikan Any diimpor
 
-# Path yang lebih robust untuk tabel default, dengan fallback
-# Ini akan mencoba mencari dari struktur paket terlebih dahulu, lalu dari root proyek
+# Logika path untuk TEST_TABLE_PATH_DEFAULT_API
 try:
-    # Mencoba path seolah-olah dijalankan dari root proyek (misal, saat 'pytest' dipanggil dari root)
-    # Struktur: project_root/mortapy/tables/file.csv
     path_candidate_1 = os.path.join("mortapy", "tables", "tabel_mortalita_penduduk_indonesia_2023.csv")
-    # Mencoba path relatif dari folder tests (jika struktur tests/ ada di luar paket mortapy utama)
-    # Struktur: project_root/tests/../mortapy/tables/file.csv
     path_candidate_2 = os.path.join(os.path.dirname(__file__), '..', 'mortapy', 'tables', 'tabel_mortalita_penduduk_indonesia_2023.csv')
-    
     if os.path.exists(path_candidate_1):
         TEST_TABLE_PATH_DEFAULT = path_candidate_1
     elif os.path.exists(path_candidate_2):
         TEST_TABLE_PATH_DEFAULT = path_candidate_2
     else:
-        # Fallback jika tidak ditemukan, ini akan error jika tabel tidak ada
         TEST_TABLE_PATH_DEFAULT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'mortapy', 'tables', 'tabel_mortalita_penduduk_indonesia_2023.csv')
-
-except Exception: # Fallback paling akhir jika ada masalah path dinamis
+except Exception:
     TEST_TABLE_PATH_DEFAULT = "mortapy/tables/tabel_mortalita_penduduk_indonesia_2023.csv"
 
 
@@ -41,7 +34,7 @@ def test_qx_dan_px_valid_default():
     """Memastikan nilai qx dan px logis dari tabel default."""
     table = MortalityTable(TEST_TABLE_PATH_DEFAULT)
     age = 35
-    gender = 'pria'
+    gender: Literal["pria", "wanita"] = 'pria'
     
     qx_val = table.qx(age, gender)
     px_val = table.px(age, gender)
@@ -70,7 +63,7 @@ def unisex_table_path(tmp_path):
     d = tmp_path / "data"
     d.mkdir()
     p = d / "unisex_table.csv"
-    content = "x,qx\n30,0.01\n31,0.015\n110,1.0"
+    content = "x,qx\n30,0.01\n31,0.015\n110,1.0" # Usia max 110 untuk tes ini
     p.write_text(content)
     return str(p)
 

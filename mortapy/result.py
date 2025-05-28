@@ -16,12 +16,11 @@ class ActuarialResult:
             formula_latex (str): Representasi simbol LaTeX utama dari hasil.
                                  Contoh: "A_x", "\\ddot{a}_{x:\\overline{n}|}".
                                  Tidak perlu menyertakan "$$" atau "= nilai".
-            description (str, optional): Deskripsi kontekstual dari hasil. 
+            description (str, optional): Deskripsi kontekstual dari hasil.
                                          Defaults to "".
         """
         self.value: float = value
-        # Pastikan formula adalah string dan bersih dari apitan $ yang tidak perlu
-        self.formula_latex: str = str(formula_latex).strip('$') 
+        self.formula_latex: str = r"{}".format(str(formula_latex).strip('$'))
         self.description: str = str(description)
 
     def __repr__(self) -> str:
@@ -30,7 +29,6 @@ class ActuarialResult:
 
     def _repr_latex_(self) -> str:
         """Representasi LaTeX untuk Jupyter Notebook/IPython (dipanggil otomatis)."""
-        # Format paling sederhana: $$ FORMULA = HASIL $$
         return f"$$ {self.formula_latex} = {self.value:.8f} $$"
 
     def show(self) -> None:
@@ -69,7 +67,17 @@ class ActuarialResult:
         return self._combine_results(other, "+", lambda a, b: a + b)
 
     def __radd__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
-        return self.__add__(other)
+        # Untuk operasi angka + objek, kita panggil __add__ dari objek
+        # dengan 'other' sebagai argumen kiri jika logika _combine_results kita
+        # selalu menempatkan self.formula_latex di kiri.
+        # Atau, kita bisa buat logika khusus. Untuk sekarang, kita samakan dengan __add__.
+        if isinstance(other, (int, float)):
+            new_value = other + self.value
+            new_formula = f"({other} + {self.formula_latex})" # Urutan dibalik untuk formula
+            new_description = f"{other} + ({self.description or self.formula_latex})"
+            return ActuarialResult(new_value, new_formula, new_description)
+        return NotImplemented
+
 
     def __sub__(self, other: Union[float, 'ActuarialResult']) -> 'ActuarialResult':
         return self._combine_results(other, "-", lambda a, b: a - b)
