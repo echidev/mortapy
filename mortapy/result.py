@@ -61,7 +61,14 @@ class ActuarialResult:
         Ini berguna jika ingin menampilkan hasil di tengah-tengah sel atau
         bersama output lain.
         """
-        display(Math(f"{self.formula_latex} = {self.value:.8f}"))
+        try:
+            display(Math(f"{self.formula_latex} = {self.value:.8f}"))
+        except ImportError: # Jika IPython tidak tersedia (misal, di terminal Python murni)
+            print(f"{self.formula_latex} = {self.value:.8f}")
+        except Exception: # Menangkap error KaTeX atau MathJax lainnya
+            print(f"LaTeX Error Rendering: {self.formula_latex} = {self.value:.8f}")
+            print("(Pastikan lingkungan Anda mendukung rendering LaTeX untuk tampilan optimal)")
+
         if self.description:
             print(f"Deskripsi: {self.description}")
 
